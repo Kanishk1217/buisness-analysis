@@ -9,7 +9,7 @@ import type {
   InsightsResponse,
 } from '../types'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const BASE = 'https://buisness-analysis.onrender.com'
 
 const api = axios.create({ baseURL: BASE, timeout: 120_000 })
 
