@@ -235,6 +235,7 @@ export default function App() {
                       loading={analysis.corrLoading}
                       corrError={analysis.corrError}
                       onLoad={analysis.loadCorrelations}
+                      uploadData={data}
                     />
                   )}
                   {tab === 'forecast' && (

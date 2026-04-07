@@ -215,6 +215,169 @@ def compute_growth_rates(df: pd.DataFrame, numeric_cols: list[str], date_col: Op
     return growth
 
 
+def generate_insights(
+    df: pd.DataFrame, numeric_cols: list[str], cat_cols: list[str],
+    date_cols: list[str], bc: dict, trends: dict, anomalies: dict,
+    growth_rates: dict, health_score: float, missing_total: int, duplicates: int,
+) -> dict:
+    rows, cols_n = df.shape
+    out: dict = {k: [] for k in ["overview", "trends", "kpi", "distributions", "correlations", "forecast", "segments", "ml"]}
+
+    # --- Overview ---
+    comp = 100 - (missing_total / max(rows * cols_n, 1) * 100)
+    out["overview"].append(f"Dataset has {rows:,} rows and {cols_n} columns with {comp:.1f}% data completeness.")
+    if health_score >= 90:
+        out["overview"].append(f"Excellent data quality (score {health_score}%) — ready for analysis.")
+    elif health_score >= 70:
+        out["overview"].append(f"Good data quality (score {health_score}%) — some gaps exist but analysis is reliable.")
+    else:
+        out["overview"].append(f"Data quality needs attention (score {health_score}%) — clean missing values and duplicates before drawing conclusions.")
+    if duplicates > 0:
+        out["overview"].append(f"{duplicates:,} duplicate rows found ({duplicates/max(rows,1)*100:.1f}%) — removing them will improve accuracy.")
+    up_c   = [c for c in numeric_cols if trends.get(c, {}).get("direction") == "up"]
+    down_c = [c for c in numeric_cols if trends.get(c, {}).get("direction") == "down"]
+    if up_c:   out["overview"].append(f"{len(up_c)} metric(s) are growing: {', '.join(up_c[:3])}.")
+    if down_c: out["overview"].append(f"{len(down_c)} metric(s) are declining: {', '.join(down_c[:3])}.")
+
+    # --- Trends ---
+    if not numeric_cols:
+        out["trends"].append("No numeric columns available for trend analysis.")
+    else:
+        strong_up   = [c for c in numeric_cols if trends.get(c,{}).get("direction")=="up"   and trends.get(c,{}).get("strength",0)>0.5]
+        strong_down = [c for c in numeric_cols if trends.get(c,{}).get("direction")=="down" and trends.get(c,{}).get("strength",0)>0.5]
+        flat_c      = [c for c in numeric_cols if trends.get(c,{}).get("direction")=="flat"]
+        if strong_up:   out["trends"].append(f"Strong upward trend in: {', '.join(strong_up[:3])} — consistent growth detected.")
+        if strong_down: out["trends"].append(f"Strong downward trend in: {', '.join(strong_down[:3])} — worth investigating.")
+        if flat_c:      out["trends"].append(f"{len(flat_c)} metric(s) are stable with no clear direction.")
+        out["trends"].append("Trend strength shows how consistently a metric moves — 100% means perfectly monotonic.")
+
+    # --- KPI ---
+    if bc["revenue_cols"]:
+        rc = bc["revenue_cols"][0]
+        d  = trends.get(rc, {}).get("direction", "flat")
+        out["kpi"].append(f"{'↑ Revenue is growing' if d=='up' else '↓ Revenue is declining' if d=='down' else '→ Revenue is stable'} ({rc}).")
+    if bc["profit_cols"] and bc["cost_cols"]:
+        out["kpi"].append("Compare profit and cost trends — if costs grow faster than profit, margins are shrinking.")
+    if not bc["revenue_cols"] and not bc["profit_cols"]:
+        out["kpi"].append("No revenue or profit columns detected — select your most important business metric.")
+    out["kpi"].append("Moving average smooths noise so you can see the real underlying trend.")
+
+    # --- Distributions ---
+    skewed = []
+    for col in numeric_cols[:10]:
+        s = df[col].dropna()
+        if len(s) > 10 and s.mean() != 0 and abs(s.mean()-s.median())/abs(s.mean()) > 0.2:
+            skewed.append(col)
+    if skewed: out["distributions"].append(f"Skewed distribution detected in: {', '.join(skewed[:3])} — mean and median differ significantly.")
+    high_anom = [(c, anomalies[c]["pct"]) for c in numeric_cols if anomalies.get(c,{}).get("pct",0) > 5]
+    if high_anom:
+        c, p = high_anom[0]
+        out["distributions"].append(f"{c} has {p:.1f}% outliers — unusual values that may distort averages.")
+    if not skewed and not high_anom:
+        out["distributions"].append("Distributions look well-behaved — no major skewness or outlier concentration.")
+    out["distributions"].append("Histograms show how frequently values fall in each range — tall bars = common values.")
+
+    # --- Correlations ---
+    if len(numeric_cols) < 2:
+        out["correlations"].append("Need at least 2 numeric columns to compute correlations.")
+    else:
+        out["correlations"].append("Correlation close to +1: two metrics rise and fall together.")
+        out["correlations"].append("Correlation close to -1: when one goes up, the other goes down.")
+        out["correlations"].append("Correlation near 0: no meaningful relationship between the two metrics.")
+        if bc["revenue_cols"] and bc["cost_cols"]:
+            out["correlations"].append("Key insight: check if revenue and cost are correlated — high correlation means costs scale with sales.")
+
+    # --- Forecast ---
+    if bc["revenue_cols"]:
+        out["forecast"].append(f"Forecasting {bc['revenue_cols'][0]} — your primary revenue metric.")
+    out["forecast"].append("Dashed line shows the projected future values based on historical trend.")
+    out["forecast"].append("Shaded band is the 95% confidence interval — wider band = more uncertainty in the forecast.")
+    if rows < 30:
+        out["forecast"].append(f"Only {rows} data points — forecast is less reliable. More historical data improves accuracy.")
+
+    # --- Segments ---
+    out["segments"].append("Segments group similar records — useful for finding customer tiers or product categories.")
+    out["segments"].append("High Value segment: records with above-average metrics across the board.")
+    out["segments"].append("Leave clusters on Auto — the algorithm finds the natural number of groups in your data.")
+
+    # --- ML ---
+    if bc["profit_cols"]:
+        out["ml"].append(f"Recommended target: {bc['profit_cols'][0]} — predict future profit from other metrics.")
+    elif cat_cols:
+        out["ml"].append(f"Recommended target: {cat_cols[0]} — classify records into categories.")
+    out["ml"].append("R² close to 1.0 means excellent predictive power. Below 0.5 means the model struggles.")
+    out["ml"].append("Feature importance: the higher a column ranks, the more it drives the prediction.")
+
+    return out
+
+
+def recommend_columns(df: pd.DataFrame, numeric_cols: list[str], cat_cols: list[str], date_cols: list[str], bc: dict) -> dict:
+    def dedup(*lists):
+        seen: list[str] = []
+        for lst in lists:
+            for c in lst:
+                if c not in seen:
+                    seen.append(c)
+        return seen
+
+    kpi_cols     = dedup(bc["revenue_cols"], bc["profit_cols"], bc["cost_cols"], numeric_cols)[:5]
+    forecast_cols= dedup(bc["revenue_cols"], bc["profit_cols"], numeric_cols)[:8]
+    seg_cols     = [c for c in dedup(bc["revenue_cols"], bc["cost_cols"], bc["profit_cols"], numeric_cols) if df[c].std() > 0][:6]
+
+    if numeric_cols:
+        top_var   = df[numeric_cols].var().nlargest(10).index.tolist()
+    else:
+        top_var   = []
+
+    ml_targets   = [c for c in (cat_cols + numeric_cols) if c not in date_cols]
+    ml_default   = dedup(bc["profit_cols"], bc["revenue_cols"], cat_cols, numeric_cols)
+    ml_default   = ml_default[0] if ml_default else (numeric_cols[-1] if numeric_cols else "")
+
+    return {
+        "kpi":              kpi_cols,
+        "forecast":         forecast_cols,
+        "segments":         seg_cols,
+        "distributions_num": numeric_cols[:10],
+        "distributions_cat": cat_cols[:5],
+        "correlations":     top_var,
+        "ml_targets":       ml_targets,
+        "ml_default_target": ml_default,
+    }
+
+
+def name_clusters(profiles: dict, cols: list[str]) -> dict:
+    """Replace 'Cluster N' keys with descriptive names based on relative values."""
+    if not cols:
+        return profiles
+    # Compute per-cluster score (sum of z-scores across cols)
+    col_means = {}
+    col_stds  = {}
+    for col in cols:
+        vals = [float(p.get(col) or 0) for p in profiles.values()]
+        col_means[col] = sum(vals) / max(len(vals), 1)
+        variance = sum((v - col_means[col]) ** 2 for v in vals) / max(len(vals), 1)
+        col_stds[col]  = variance ** 0.5 or 1
+
+    scores = {}
+    for name, profile in profiles.items():
+        score = sum((float(profile.get(col) or 0) - col_means[col]) / col_stds[col] for col in cols)
+        scores[name] = score
+
+    ranked = sorted(scores.keys(), key=lambda k: scores[k], reverse=True)
+    n = len(ranked)
+    labels = ["High Value", "Growth", "Core", "Basic", "At Risk", "Entry Level"]
+    if n == 2:
+        labels = ["High Value", "Growth Opportunity"]
+    elif n == 3:
+        labels = ["High Value", "Core Segment", "At Risk"]
+
+    renamed: dict = {}
+    for i, old_key in enumerate(ranked):
+        new_key = labels[i] if i < len(labels) else f"Segment {i+1}"
+        renamed[new_key] = profiles[old_key]
+    return renamed
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -274,6 +437,15 @@ async def upload(file: UploadFile = File(...)):
         # Growth rates
         growth_rates = compute_growth_rates(df, numeric_cols[:20], business_context["date_col"])
 
+        # Plain English insights per tab
+        insights = generate_insights(
+            df, numeric_cols, cat_cols, date_cols, business_context,
+            trends, anomalies, growth_rates, health_score, missing_total, duplicates,
+        )
+
+        # Smart column recommendations per feature
+        recommendations = recommend_columns(df, numeric_cols, cat_cols, date_cols, business_context)
+
         return sanitize({
             "shape":            shape,
             "columns":          columns,
@@ -295,6 +467,8 @@ async def upload(file: UploadFile = File(...)):
             "health_score":     health_score,
             "anomalies":        anomalies,
             "growth_rates":     growth_rates,
+            "insights":         insights,
+            "recommendations":  recommendations,
         })
 
     except Exception as e:
@@ -469,10 +643,12 @@ async def segment(
             profiles[f"Cluster {k}"]["count"] = int(mask.sum())
             profiles[f"Cluster {k}"]["pct"]   = round(float(mask.sum()) / len(X) * 100, 2)
 
+        named_profiles = name_clusters(profiles, cols)
+
         return sanitize({
             "n_clusters":   n_clusters,
             "labels":       labels.tolist(),
-            "profiles":     profiles,
+            "profiles":     named_profiles,
             "columns_used": cols,
             "sample_data":  X_out.head(300).replace({np.nan: None}).to_dict(orient="records"),
         })

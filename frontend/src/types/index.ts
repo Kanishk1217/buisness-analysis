@@ -23,6 +23,17 @@ export interface GrowthRate {
   yoy: number | null
 }
 
+export interface Recommendations {
+  kpi:               string[]
+  forecast:          string[]
+  segments:          string[]
+  distributions_num: string[]
+  distributions_cat: string[]
+  correlations:      string[]
+  ml_targets:        string[]
+  ml_default_target: string
+}
+
 export interface UploadResponse {
   shape:            [number, number]
   columns:          string[]
@@ -44,6 +55,8 @@ export interface UploadResponse {
   health_score:     number
   anomalies:        Record<string, AnomalyInfo>
   growth_rates:     Record<string, GrowthRate>
+  insights:         Record<string, string[]>
+  recommendations:  Recommendations
 }
 
 export interface CorrelationResponse {

@@ -1,37 +1,64 @@
 import { motion } from 'framer-motion'
 import { MetricBox } from '../UI/MetricBox'
 import { Badge } from '../UI/Badge'
+import { InsightPanel } from '../UI/InsightPanel'
+import { fmt } from '../../utils/format'
 import type { UploadResponse } from '../../types'
 
-interface Props {
-  data: UploadResponse
-}
+interface Props { data: UploadResponse }
 
 export function Overview({ data }: Props) {
   const { business_context: bc } = data
-
   const missingPct = data.shape[0] > 0 && data.shape[1] > 0
-    ? ((data.missing_total / (data.shape[0] * data.shape[1])) * 100).toFixed(1)
-    : '0'
+    ? (data.missing_total / (data.shape[0] * data.shape[1])) * 100
+    : 0
+
+  const hs = data.health_score
+  const hsColor = hs >= 90 ? 'bg-white/80' : hs >= 70 ? 'bg-white/50' : 'bg-white/25'
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <MetricBox label="Health Score"   value={`${data.health_score}%`} sub="data quality" delay={0}    />
-        <MetricBox label="Total Rows"     value={data.shape[0]}           sub="records"       delay={0.05} />
-        <MetricBox label="Missing Values" value={`${missingPct}%`}        sub="of all cells"  delay={0.1}  />
-        <MetricBox label="Duplicates"     value={data.duplicates}         sub="duplicate rows" delay={0.15} />
+        <MetricBox label="Total Rows"     value={data.shape[0]}       sub="records"        delay={0}    />
+        <MetricBox label="Columns"        value={data.shape[1]}       sub="total columns"  delay={0.05} />
+        <MetricBox label="Complete Rows"  value={data.complete_rows}  sub="no missing"     delay={0.1}  />
+        <MetricBox label="Duplicates"     value={data.duplicates}     sub="duplicate rows" delay={0.15} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <MetricBox label="Columns"       value={data.shape[1]}          sub="total columns"   delay={0.2} />
-        <MetricBox label="Numeric Cols"  value={data.numeric_cols.length} sub="numeric"        delay={0.25} />
-        <MetricBox label="Complete Rows" value={data.complete_rows}     sub="no missing"      delay={0.3} />
-      </div>
+      {/* Health score visual */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="glass p-5 space-y-3"
+      >
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-white/30">Data Quality Score</p>
+          <span className={`text-2xl font-semibold ${hs >= 90 ? 'text-white' : hs >= 70 ? 'text-white/70' : 'text-white/40'}`}>
+            {hs}%
+          </span>
+        </div>
+        <div className="h-1.5 bg-white/[0.06] overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${hs}%` }}
+            transition={{ duration: 1, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            className={`h-full ${hsColor}`}
+          />
+        </div>
+        <div className="flex justify-between text-[10px] font-mono text-white/20">
+          <span>Missing values: {fmt(missingPct, { pct: true })}</span>
+          <span>Memory: {fmt(data.memory_mb, { dec: 2 })} MB</span>
+          <span>{data.date_cols.length} date col(s)</span>
+        </div>
+      </motion.div>
 
-      {/* Business Context Detection */}
+      {/* Insights */}
+      <InsightPanel insights={data.insights?.overview ?? []} />
+
+      {/* Business Context */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -52,11 +79,11 @@ export function Overview({ data }: Props) {
           </div>
         )}
         {!bc.date_col && !bc.revenue_cols.length && !bc.cost_cols.length && !bc.profit_cols.length && (
-          <p className="text-xs text-dim font-mono">No specific business columns detected — column names don't match common business patterns.</p>
+          <p className="text-xs text-dim font-mono">No specific business columns detected.</p>
         )}
       </motion.div>
 
-      {/* Column Summary */}
+      {/* Column Summary table */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -106,20 +133,6 @@ export function Overview({ data }: Props) {
             })}
           </tbody>
         </table>
-      </motion.div>
-
-      {/* Memory info */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="flex items-center gap-4 text-[11px] font-mono text-white/25"
-      >
-        <span>Memory: {data.memory_mb.toFixed(2)} MB</span>
-        <span>·</span>
-        <span>{data.date_cols.length} date column(s) detected</span>
-        <span>·</span>
-        <span>{data.cat_cols.length} categorical column(s)</span>
       </motion.div>
     </motion.div>
   )
