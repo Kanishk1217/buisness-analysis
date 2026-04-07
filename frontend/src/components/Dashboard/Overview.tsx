@@ -5,9 +5,10 @@ import { InsightPanel } from '../UI/InsightPanel'
 import { fmt } from '../../utils/format'
 import type { UploadResponse } from '../../types'
 
-interface Props { data: UploadResponse }
+interface Props { data: UploadResponse; renameMap?: Record<string, string> }
 
-export function Overview({ data }: Props) {
+export function Overview({ data, renameMap = {} }: Props) {
+  const dn = (col: string) => renameMap[col] ?? col
   const { business_context: bc } = data
   const missingPct = data.shape[0] > 0 && data.shape[1] > 0
     ? (data.missing_total / (data.shape[0] * data.shape[1])) * 100
@@ -110,7 +111,7 @@ export function Overview({ data }: Props) {
               const trend   = isNum ? data.trends[col] : null
               return (
                 <tr key={col} className="border-b border-border/50 hover:bg-surface2 transition-colors">
-                  <td className="px-4 py-2 font-mono text-muted">{col}</td>
+                  <td className="px-4 py-2 font-mono text-muted">{dn(col)}</td>
                   <td className="px-4 py-2">
                     <Badge label={isNum ? 'numeric' : 'categorical'} variant="default" />
                   </td>

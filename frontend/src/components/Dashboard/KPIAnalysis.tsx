@@ -7,6 +7,13 @@ import { InsightPanel } from '../UI/InsightPanel'
 import { fmt, fmtAxis, fmtGrowth } from '../../utils/format'
 import type { UploadResponse, KpiResponse } from '../../types'
 
+// Custom dot that highlights anomaly points
+function AnomalyDot(props: Record<string, unknown>) {
+  const { cx, cy, index, anomalyIndices } = props as { cx: number; cy: number; index: number; anomalyIndices: number[] }
+  if (!anomalyIndices?.includes(index)) return null
+  return <circle cx={cx} cy={cy} r={4} fill="rgba(255,255,255,0.9)" stroke="rgba(255,255,255,0.3)" strokeWidth={2} />
+}
+
 const TOOLTIP_STYLE = {
   contentStyle: { background: '#111', border: '1px solid #262626', borderRadius: 0, fontSize: 11 },
   labelStyle:   { color: '#a1a1aa' },
@@ -89,10 +96,19 @@ export function KPIAnalysis({ data, kpiResult, loading, error, onRun }: Props) {
             }))
             const latestGrowth = res.growth_pct.filter((v) => v !== null).slice(-1)[0] ?? null
 
+            const anomalyIndices = data.anomalies[col]?.indices ?? []
+
             return (
               <div key={col} className="bg-surface border border-border p-4 space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <p className="text-xs font-mono text-dim uppercase tracking-widest">{col}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-mono text-dim uppercase tracking-widest">{col}</p>
+                    {anomalyIndices.length > 0 && (
+                      <span className="text-[10px] font-mono text-white/30 border border-white/10 px-1.5 py-0.5">
+                        {anomalyIndices.length} anomalies
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-4 text-[11px] font-mono text-white/30">
                     <span>Min: <span className="text-white/60">{fmt(res.min)}</span></span>
                     <span>Max: <span className="text-white/60">{fmt(res.max)}</span></span>
@@ -110,7 +126,11 @@ export function KPIAnalysis({ data, kpiResult, loading, error, onRun }: Props) {
                     <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => fmt(v)} />
                     <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: '#52525b' }} />
                     <ReferenceLine y={mean} stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="value" name="Value"           stroke="rgba(250,250,250,0.45)" dot={false} strokeWidth={1.5} />
+                    <Line type="monotone" dataKey="value" name="Value"
+                      stroke="rgba(250,250,250,0.45)" strokeWidth={1.5}
+                      dot={(props) => <AnomalyDot {...props} anomalyIndices={anomalyIndices} />}
+                      activeDot={{ r: 4 }}
+                    />
                     <Line type="monotone" dataKey="ma"    name={`MA(${window})`} stroke="rgba(250,250,250,0.9)"  dot={false} strokeWidth={2}   />
                     <Line type="monotone" dataKey="trend" name="Trend"           stroke="rgba(120,120,120,0.5)"  dot={false} strokeWidth={1} strokeDasharray="4 2" />
                   </LineChart>

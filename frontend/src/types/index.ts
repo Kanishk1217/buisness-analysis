@@ -149,3 +149,4 @@ export type Tab =
   | 'forecast'
   | 'segments'
   | 'model'
+  | 'story'

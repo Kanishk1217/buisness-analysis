@@ -5,6 +5,7 @@ import { Button }       from '../UI/Button'
 import { MetricBox }    from '../UI/MetricBox'
 import { Spinner }      from '../UI/Spinner'
 import { InsightPanel } from '../UI/InsightPanel'
+import { TrustBadge }  from '../UI/TrustBadge'
 import { fmt, fmtAxis } from '../../utils/format'
 import type { UploadResponse, TrainResponse } from '../../types'
 
@@ -95,12 +96,10 @@ export function MLModel({ uploadData, onTrain, result, loading, error }: Props) 
           {result.problem_type === 'regression' && result.metrics && (
             <>
               <div className="grid grid-cols-3 gap-3">
-                <div className="glass p-4">
-                  <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest mb-1">R² Score</p>
+                <div className="glass p-4 space-y-3">
+                  <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">R² Score</p>
                   <p className="text-2xl font-semibold text-white">{result.metrics.r2?.toFixed(4) ?? '—'}</p>
-                  <p className="text-[10px] font-mono text-white/20 mt-1">
-                    {(result.metrics.r2 ?? 0) >= 0.8 ? 'Excellent fit' : (result.metrics.r2 ?? 0) >= 0.5 ? 'Moderate fit' : 'Poor fit'}
-                  </p>
+                  <TrustBadge value={result.metrics.r2} type="r2" />
                 </div>
                 <div className="glass p-4">
                   <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest mb-1">RMSE</p>
@@ -214,6 +213,39 @@ export function MLModel({ uploadData, onTrain, result, loading, error }: Props) 
               )}
             </>
           )}
+
+          {/* Model feedback & recommendations */}
+          {(() => {
+            const r2  = result.metrics.r2 ?? result.metrics.accuracy ?? null
+            const recs: string[] = []
+            if (result.problem_type === 'regression') {
+              if ((r2 ?? 0) < 0.5)  recs.push('R² is below 0.5 — the model struggles. Try a different algorithm or add more relevant features.')
+              if ((r2 ?? 0) > 0.95) recs.push('R² above 0.95 may indicate overfitting — test on completely new data to verify.')
+              if ((r2 ?? 0) >= 0.5 && (r2 ?? 0) <= 0.95) recs.push('Model performance is acceptable. Check feature importance to identify which columns drive predictions most.')
+            } else {
+              if ((r2 ?? 0) < 0.7)  recs.push('Accuracy below 70% — consider collecting more data or trying Gradient Boosting for better results.')
+              if ((r2 ?? 0) > 0.95) recs.push('Very high accuracy — verify the data doesn\'t have leakage (a column that directly encodes the target).')
+            }
+            if (result.train_samples < 100) recs.push('Small training set (<100 rows) — results may not generalise. Gather more data for reliable predictions.')
+            if (result.feature_importance) {
+              const top = result.feature_importance.features[0]
+              const topScore = result.feature_importance.scores[0]
+              if (topScore > 0.5) recs.push(`${top} drives over ${(topScore * 100).toFixed(0)}% of predictions — focus business decisions here first.`)
+            }
+            if (!recs.length) return null
+            return (
+              <div className="glass p-4 space-y-2">
+                <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-white/30 mb-3">What This Means</p>
+                <ul className="space-y-2">
+                  {recs.map((r, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-xs font-mono text-white/60 leading-relaxed">
+                      <span className="text-white/20 mt-0.5 flex-shrink-0">›</span><span>{r}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          })()}
 
           {/* Feature importance */}
           {result.feature_importance && (

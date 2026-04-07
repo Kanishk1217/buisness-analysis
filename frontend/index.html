@@ -3,13 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Business Analyzer</title>
-    <meta name="description" content="Business intelligence platform — KPIs, trends, forecasts, and ML predictions from any CSV" />
+    <title>Business Analyzer — Know Your Business Instantly</title>
+    <meta name="description" content="Upload any business CSV and get instant answers — revenue trends, profit forecasts, customer segments, and ML predictions. No data science knowledge required." />
+    <meta name="theme-color" content="#000000" />
+    <meta property="og:title" content="Business Analyzer" />
+    <meta property="og:description" content="Know what's growing, what's declining, and what to do next — in seconds." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <!-- Cloudflare Web Analytics -->
+    <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "REPLACE_WITH_YOUR_CF_ANALYTICS_TOKEN"}'></script>
   </head>
   <body>
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-black focus:text-sm">
+      Skip to main content
+    </a>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

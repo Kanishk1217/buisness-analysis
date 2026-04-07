@@ -7,6 +7,7 @@ import {
 import { Button }       from '../UI/Button'
 import { Spinner }      from '../UI/Spinner'
 import { InsightPanel } from '../UI/InsightPanel'
+import { TrustBadge }  from '../UI/TrustBadge'
 import { fmt, fmtAxis } from '../../utils/format'
 import type { UploadResponse, ForecastResponse } from '../../types'
 
@@ -107,6 +108,16 @@ export function Forecast({ data, forecastResult, loading, error, onRun }: Props)
                   {change > 0 ? '+' : ''}{change.toFixed(1)}%
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Forecast trust signal */}
+          {forecastResult.std_residual !== null && (
+            <div className="glass p-4">
+              <TrustBadge
+                value={Math.max(0, 1 - (forecastResult.std_residual / Math.max(Math.abs(lastHistorical ?? 1), 1)))}
+                type="confidence"
+              />
             </div>
           )}
 

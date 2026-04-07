@@ -387,6 +387,10 @@ def health():
 async def upload(file: UploadFile = File(...)):
     try:
         raw = await file.read()
+        if len(raw) > 20 * 1024 * 1024:
+            return JSONResponse(status_code=413, content={
+                "detail": "File is too large (max 20 MB). Try removing unused columns or filtering rows before uploading."
+            })
         df  = read_csv(raw)
 
         # Basic info
