@@ -72,6 +72,25 @@ def detect_date_cols(df: pd.DataFrame) -> list[str]:
     return found
 
 
+def is_id_col(df: pd.DataFrame, col: str) -> bool:
+    """Return True if a column looks like an identifier and should be excluded from numeric analysis."""
+    col_lower = col.lower().strip()
+    # Exact match
+    if col_lower in ('id', 'index', 'idx', 'key', 'ref', 'no', 'num', 'number', 'code', 'serial'):
+        return True
+    # Suffix / prefix patterns
+    id_patterns = ('_id', '_code', '_key', '_ref', '_no', '_num', '_index', '_serial',
+                   'id_', 'code_', 'key_', 'ref_', 'no_', 'num_')
+    if any(col_lower.endswith(p) or col_lower.startswith(p) for p in id_patterns):
+        return True
+    # High-cardinality integer: >90 % unique values and column name contains an id hint
+    if pd.api.types.is_integer_dtype(df[col]):
+        uniqueness = df[col].nunique() / max(len(df), 1)
+        if uniqueness > 0.9:
+            return True
+    return False
+
+
 def detect_business_context(df: pd.DataFrame, numeric_cols: list[str], date_cols: list[str]) -> dict:
     revenue_kw = ['revenue', 'sales', 'income', 'turnover', 'gross', 'receipts']
     cost_kw    = ['cost', 'expense', 'spend', 'expenditure', 'overhead', 'cogs']
@@ -213,7 +232,7 @@ async def upload(file: UploadFile = File(...)):
         dtypes  = {c: str(df[c].dtype) for c in columns}
 
         # Column classification
-        numeric_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c])]
+        numeric_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c]) and not is_id_col(df, c)]
         cat_cols     = [c for c in columns if not pd.api.types.is_numeric_dtype(df[c])]
         date_cols    = detect_date_cols(df)
 
@@ -578,7 +597,7 @@ async def insights(file: UploadFile = File(...)):
 
         texts: list[str] = []
         columns    = list(df.columns)
-        numeric_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c])]
+        numeric_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c]) and not is_id_col(df, c)]
         n_rows, n_cols = df.shape
 
         texts.append(f"Dataset has {n_rows:,} rows and {n_cols} columns.")
@@ -652,7 +671,7 @@ async def correlations(file: UploadFile = File(...)):
     try:
         raw  = await file.read()
         df   = read_csv(raw)
-        num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+        num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and not is_id_col(df, c)]
 
         if len(num_cols) < 2:
             return {"original": {"columns": [], "matrix": []}, "cleaned": {"columns": [], "matrix": []}, "pairs": []}
