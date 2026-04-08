@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { MetricBox } from '../UI/MetricBox'
 import { Badge } from '../UI/Badge'
@@ -10,12 +11,17 @@ interface Props { data: UploadResponse; renameMap?: Record<string, string> }
 export function Overview({ data, renameMap = {} }: Props) {
   const dn = (col: string) => renameMap[col] ?? col
   const { business_context: bc } = data
+  const [search, setSearch] = useState('')
   const missingPct = data.shape[0] > 0 && data.shape[1] > 0
     ? (data.missing_total / (data.shape[0] * data.shape[1])) * 100
     : 0
 
   const hs = data.health_score
   const hsColor = hs >= 90 ? 'bg-white/80' : hs >= 70 ? 'bg-white/50' : 'bg-white/25'
+
+  const filteredCols = data.columns.filter((c) =>
+    dn(c).toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -84,11 +90,62 @@ export function Overview({ data, renameMap = {} }: Props) {
         )}
       </motion.div>
 
-      {/* Column Summary table */}
+      {/* All Columns — searchable */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
+        className="bg-surface border border-border p-4 space-y-3"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-white/30 flex-shrink-0">
+            All Columns ({data.columns.length})
+          </p>
+          <input
+            type="text"
+            placeholder="Search columns…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search columns"
+            className="w-full max-w-xs bg-transparent border border-border text-xs font-mono text-muted placeholder:text-dim px-3 py-1.5 focus:outline-none focus:border-white/20"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {filteredCols.map((col) => {
+            const isNum = data.numeric_cols.includes(col)
+            const isCat = data.cat_cols.includes(col)
+            const isDate = data.date_cols?.includes(col)
+            const tag = isDate ? 'date' : isNum ? 'numeric' : isCat ? 'categorical' : 'other'
+            const color = isDate
+              ? 'border-white/20 text-white/50'
+              : isNum
+              ? 'border-white/15 text-white/60'
+              : 'border-white/10 text-white/40'
+            return (
+              <div
+                key={col}
+                className={`flex items-center gap-1.5 border px-2 py-1 text-[11px] font-mono ${color}`}
+                title={`${dn(col)} — ${tag}`}
+              >
+                <span>{dn(col)}</span>
+                <span className="text-white/20">{isDate ? '📅' : isNum ? '#' : 'T'}</span>
+              </div>
+            )
+          })}
+          {filteredCols.length === 0 && (
+            <p className="text-xs font-mono text-dim">No columns match "{search}"</p>
+          )}
+        </div>
+        <p className="text-[10px] font-mono text-white/20">
+          # = numeric · T = text/categorical · 📅 = date
+        </p>
+      </motion.div>
+
+      {/* Column Summary table */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
         className="bg-surface border border-border overflow-x-auto"
       >
         <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-white/30 p-4 border-b border-border">
@@ -103,7 +160,7 @@ export function Overview({ data, renameMap = {} }: Props) {
             </tr>
           </thead>
           <tbody>
-            {data.columns.map((col) => {
+            {(search ? filteredCols : data.columns).map((col) => {
               const isNum   = data.numeric_cols.includes(col)
               const missing = data.missing[col] ?? 0
               const missPct = data.shape[0] > 0 ? ((missing / data.shape[0]) * 100).toFixed(1) : '0'
@@ -134,6 +191,9 @@ export function Overview({ data, renameMap = {} }: Props) {
             })}
           </tbody>
         </table>
+        <p className="text-[10px] font-mono text-white/20 p-3 border-t border-border">
+          Missing counts how many rows lack a value for that column. Anomalies are statistical outliers detected via Z-score. Trend shows the overall direction over time.
+        </p>
       </motion.div>
     </motion.div>
   )

@@ -111,10 +111,16 @@ export function Correlations({ correlations, loading, corrError, onLoad, uploadD
         <div className="bg-surface border border-border p-4">
           <p className="text-xs font-mono text-dim uppercase tracking-widest mb-4">Original Data</p>
           <HeatmapGrid data={correlations.original} />
+          <p className="text-[10px] font-mono text-white/25 mt-3">
+            Each cell shows how strongly two columns move together. Light = positive link (both rise together). Blue = negative (one rises while the other falls). Near white/transparent = no relationship.
+          </p>
         </div>
         <div className="bg-surface border border-border p-4">
           <p className="text-xs font-mono text-dim uppercase tracking-widest mb-4">After Cleaning</p>
           <HeatmapGrid data={correlations.cleaned} />
+          <p className="text-[10px] font-mono text-white/25 mt-3">
+            Same heatmap after removing missing values and outliers. Differences from the original reveal relationships that were hidden or distorted by bad data.
+          </p>
         </div>
       </div>
 

@@ -161,6 +161,9 @@ export function Forecast({ data, forecastResult, loading, error, onRun }: Props)
                   strokeDasharray="6 3" connectNulls />
               </ComposedChart>
             </ResponsiveContainer>
+            <p className="text-[10px] font-mono text-white/25 mt-2 px-1">
+              The solid line is your actual historical data. The dashed line is the model's projection. The shaded band is the 95% confidence range — wider bands mean higher uncertainty in the forecast.
+            </p>
           </div>
 
           {/* Forecast table */}

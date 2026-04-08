@@ -135,6 +135,9 @@ export function KPIAnalysis({ data, kpiResult, loading, error, onRun }: Props) {
                     <Line type="monotone" dataKey="trend" name="Trend"           stroke="rgba(120,120,120,0.5)"  dot={false} strokeWidth={1} strokeDasharray="4 2" />
                   </LineChart>
                 </ResponsiveContainer>
+                <p className="text-[10px] font-mono text-white/25 mt-2">
+                  The bright line is the moving average — it smooths short-term noise to reveal the underlying trend. White dots mark statistical outliers (anomalies). The dashed grey line shows the long-run direction.
+                </p>
 
                 {/* Growth % mini chart */}
                 {res.growth_pct.some((v) => v !== null) && (

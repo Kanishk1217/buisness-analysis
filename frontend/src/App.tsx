@@ -58,7 +58,7 @@ export default function App() {
       <div className="bg-orb bg-orb-3" aria-hidden="true" />
       <div className="noise"           aria-hidden="true" />
 
-      <Navbar />
+      <Navbar onReset={reset} />
 
       <AnimatePresence>
         {uploading && file && <UploadingScreen filename={file.name} />}

@@ -110,6 +110,9 @@ export function Segments({ data, segmentResult, loading, error, onRun }: Props) 
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+                <p className="text-[10px] font-mono text-white/25 mt-2">
+                  Each bar is a customer or product group's average for this metric. Taller bars = higher values for that segment. Use these gaps to understand what makes each group different.
+                </p>
               </div>
             )
           })}

@@ -1,6 +1,8 @@
 import { motion, useScroll, useTransform } from 'framer-motion'
 
-export function Navbar() {
+interface Props { onReset: () => void }
+
+export function Navbar({ onReset }: Props) {
   const { scrollY } = useScroll()
   const bg = useTransform(scrollY, [0, 60], ['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)'])
 
@@ -18,17 +20,23 @@ export function Navbar() {
       />
 
       <div className="relative flex w-full items-center">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5">
+        {/* Logo — click to reset */}
+        <button
+          onClick={onReset}
+          className="flex items-center gap-2.5 cursor-pointer focus:outline-none group"
+          aria-label="Go back to upload screen"
+        >
           <div className="relative w-6 h-6 overflow-hidden">
             <div className="grid grid-cols-2 gap-0.5 w-full h-full">
               {[1, 0.35, 0.35, 1].map((op, i) => (
-                <div key={i} className="bg-white rounded-[1px]" style={{ opacity: op }} />
+                <div key={i} className="bg-white rounded-[1px] transition-opacity group-hover:opacity-100" style={{ opacity: op }} />
               ))}
             </div>
           </div>
-          <span className="text-sm font-medium tracking-tight text-white/90">Business Analyzer</span>
-        </div>
+          <span className="text-sm font-medium tracking-tight text-white/90 group-hover:text-white transition-colors">
+            Business Analyzer
+          </span>
+        </button>
 
         {/* Right */}
         <div className="ml-auto flex items-center gap-6">

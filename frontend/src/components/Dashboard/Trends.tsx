@@ -17,6 +17,9 @@ export function Trends({ data }: Props) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
       <InsightPanel insights={data.insights?.trends ?? []} />
 
+      <p className="text-[10px] font-mono text-white/25 px-1">
+        Each card shows a sparkline of values over time. Trend Strength measures how consistently the column moves in one direction — 100% is a perfect trend. Consistency shows how steadily it moves without reversals.
+      </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {sorted.map((col, i) => {
           const trend   = data.trends[col]
