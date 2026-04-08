@@ -90,7 +90,29 @@ export function Overview({ data, renameMap = {} }: Props) {
         )}
       </motion.div>
 
-      {/* All Columns — searchable */}
+      {/* Search bar */}
+      <div className="bg-surface border border-border p-3 flex items-center gap-3">
+        <span className="text-dim font-mono text-xs flex-shrink-0">Search</span>
+        <input
+          type="text"
+          placeholder="Filter columns…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Search columns"
+          className="w-full bg-transparent border border-border text-xs font-mono text-muted placeholder:text-dim px-3 py-1.5 focus:outline-none focus:border-white/20"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="text-dim text-xs font-mono hover:text-white transition-colors flex-shrink-0"
+            aria-label="Clear search"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {/* All Columns */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -99,16 +121,8 @@ export function Overview({ data, renameMap = {} }: Props) {
       >
         <div className="flex items-center justify-between gap-4">
           <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-white/30 flex-shrink-0">
-            All Columns ({data.columns.length})
+            All Columns ({filteredCols.length}{search ? ` of ${data.columns.length}` : ''})
           </p>
-          <input
-            type="text"
-            placeholder="Search columns…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search columns"
-            className="w-full max-w-xs bg-transparent border border-border text-xs font-mono text-muted placeholder:text-dim px-3 py-1.5 focus:outline-none focus:border-white/20"
-          />
         </div>
         <div className="flex flex-wrap gap-2">
           {filteredCols.map((col) => {
