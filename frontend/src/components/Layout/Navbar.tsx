@@ -22,9 +22,9 @@ export function Navbar({ onReset }: Props) {
       <div className="relative flex w-full items-center">
         {/* Logo — click to reset */}
         <button
-          onClick={onReset}
+          onClick={() => { onReset(); window.location.reload() }}
           className="flex items-center gap-2.5 cursor-pointer focus:outline-none group"
-          aria-label="Go back to upload screen"
+          aria-label="Reload app"
         >
           <div className="relative w-6 h-6 overflow-hidden">
             <div className="grid grid-cols-2 gap-0.5 w-full h-full">
