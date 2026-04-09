@@ -9,11 +9,9 @@ import { Tabs }            from './components/UI/Tabs'
 import { SlotContent }     from './components/Dashboard/SlotContent'
 import { useUpload }       from './hooks/useUpload'
 import { useAnalysis }     from './hooks/useAnalysis'
-import { uploadCSV }       from './api/client'
-import { pingServer }      from './api/client'
+import { uploadCSV, pingServer } from './api/client'
 import type { Tab, UploadResponse } from './types'
 
-// ── Rename context (per-slot, provided by SlotContent) ──────────
 export const RenameContext = createContext<Record<string, string>>({})
 export function useRename() { return useContext(RenameContext) }
 export function dn(col: string, map: Record<string, string>) { return map[col] ?? col }
@@ -31,6 +29,42 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 type Layout = 'sidebyside' | 'switch'
+
+/** Always-visible upload zone shown next to loaded slots */
+function CompareZone({
+  label, sublabel, onFile, loading, error,
+}: {
+  label: string; sublabel: string
+  onFile: (f: File) => void; loading: boolean; error: string | null
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 16 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="flex flex-col border border-white/[0.08] bg-white/[0.02]"
+    >
+      <div className="px-4 pt-4 pb-3 border-b border-white/[0.06] flex items-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-white/20 flex-shrink-0" />
+        <span className="text-xs font-mono text-white/40">{label}</span>
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
+        <div className="text-center space-y-1 mb-2">
+          <p className="text-sm font-mono text-white/50">{sublabel}</p>
+          <p className="text-[10px] font-mono text-white/20">
+            Drop a CSV to compare it side-by-side with all tabs synced
+          </p>
+        </div>
+        <CompactUpload
+          label="Drop CSV here or click to browse"
+          onFile={onFile}
+          loading={loading}
+          error={error}
+        />
+      </div>
+    </motion.div>
+  )
+}
 
 export default function App() {
   /* ── Primary slot (session-persisted) ── */
@@ -53,11 +87,10 @@ export default function App() {
   const a2 = useAnalysis(f2)
 
   /* ── UI state ── */
-  const [tab,          setTab]          = useState<Tab>('overview')
-  const [layout,       setLayout]       = useState<Layout>('sidebyside')
-  const [activeSlot,   setActiveSlot]   = useState(0)
-  const [serverReady,  setReady]        = useState(false)
-  const [showAddPanel, setShowAddPanel] = useState(false)
+  const [tab,         setTab]       = useState<Tab>('overview')
+  const [layout,      setLayout]    = useState<Layout>('sidebyside')
+  const [activeSlot,  setActiveSlot] = useState(0)
+  const [serverReady, setReady]     = useState(false)
 
   useEffect(() => { pingServer().finally(() => setReady(true)) }, [])
 
@@ -72,7 +105,6 @@ export default function App() {
     try {
       const res = await uploadCSV(f)
       setF(f); setD(res)
-      setShowAddPanel(false)
     } catch (err: unknown) {
       setE(err instanceof Error ? err.message : 'Upload failed')
     } finally {
@@ -90,10 +122,10 @@ export default function App() {
     reset0()
     setF1(null); setD1(null); setE1(null)
     setF2(null); setD2(null); setE2(null)
-    setActiveSlot(0); setShowAddPanel(false)
+    setActiveSlot(0)
   }
 
-  /* ── Active slots ── */
+  /* ── Derived state ── */
   const loadedSlots = [
     d0 ? { data: d0, file: f0, analysis: a0, name: f0?.name ?? restoredFilename ?? 'File 1', idx: 0 as const } : null,
     d1 ? { data: d1, file: f1, analysis: a1, name: f1?.name ?? 'File 2',                     idx: 1 as const } : null,
@@ -101,7 +133,7 @@ export default function App() {
   ].filter(Boolean) as { data: UploadResponse; file: File | null; analysis: ReturnType<typeof useAnalysis>; name: string; idx: number }[]
 
   const compareActive = loadedSlots.length > 1
-  const canAddMore    = d0 !== null && loadedSlots.length < 3
+  const totalCols     = Math.min(loadedSlots.length + (loadedSlots.length < 3 ? 1 : 0), 3)
 
   return (
     <div className="relative min-h-screen bg-black text-white flex flex-col">
@@ -221,13 +253,17 @@ export default function App() {
                   style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)' }}
                   aria-hidden="true" />
 
-                {/* File names */}
                 <div className="flex items-center gap-2 flex-wrap">
                   {loadedSlots.map((slot) => (
                     <span key={slot.idx} className="text-xs font-mono text-white/50 border border-white/[0.08] px-2 py-0.5">
                       {slot.name}
                     </span>
                   ))}
+                  {!d1 && (
+                    <span className="text-[10px] font-mono text-white/20 italic">
+                      ↓ drop a second file below to compare
+                    </span>
+                  )}
                   {restoredFilename && !f0 && (
                     <span className="text-[10px] font-mono text-white/20 border border-white/[0.06] px-2 py-0.5">
                       session restored · re-upload to run new analyses
@@ -235,104 +271,43 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Controls */}
                 <div className="flex items-center gap-3 flex-wrap">
-                  {/* Layout toggle */}
                   {compareActive && (
                     <div className="flex items-center border border-white/[0.08]">
-                      <button
-                        onClick={() => setLayout('sidebyside')}
+                      <button onClick={() => setLayout('sidebyside')}
                         className={`px-2.5 py-1 text-[10px] font-mono transition-colors ${layout === 'sidebyside' ? 'bg-white/10 text-white/80' : 'text-white/30 hover:text-white/50'}`}
-                        aria-pressed={layout === 'sidebyside'}
-                      >Side by Side</button>
+                        aria-pressed={layout === 'sidebyside'}>Side by Side</button>
                       <div className="w-px h-4 bg-white/[0.08]" />
-                      <button
-                        onClick={() => setLayout('switch')}
+                      <button onClick={() => setLayout('switch')}
                         className={`px-2.5 py-1 text-[10px] font-mono transition-colors ${layout === 'switch' ? 'bg-white/10 text-white/80' : 'text-white/30 hover:text-white/50'}`}
-                        aria-pressed={layout === 'switch'}
-                      >Switch Files</button>
+                        aria-pressed={layout === 'switch'}>Switch Files</button>
                     </div>
                   )}
-
-                  {/* Add file */}
-                  {canAddMore && (
-                    <button
-                      onClick={() => setShowAddPanel((p) => !p)}
-                      className="text-[10px] font-mono text-white/30 hover:text-white/60 border border-white/[0.08] px-2.5 py-1 transition-colors"
-                      aria-expanded={showAddPanel}
-                    >
-                      {showAddPanel ? '− Hide' : '+ Compare Files'}
-                    </button>
-                  )}
-
                   <motion.button onClick={resetAll} whileHover={{ color: 'rgba(255,255,255,0.9)' }}
-                    className="text-xs font-mono text-white/25 transition-colors" aria-label="Reset all files">
-                    ✕ Close
-                  </motion.button>
+                    className="text-xs font-mono text-white/25 transition-colors">✕ Close</motion.button>
                 </div>
               </motion.div>
-
-              {/* ── Add files panel ── */}
-              <AnimatePresence>
-                {showAddPanel && canAddMore && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="bg-surface border border-border p-4 space-y-3">
-                      <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-white/30">
-                        Add Files to Compare (up to 3 total)
-                      </p>
-                      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-                        {!d1 && (
-                          <CompactUpload label="File 2 — drop CSV here"
-                            onFile={(f) => uploadSlot(1, f)}
-                            loading={l1} error={e1} />
-                        )}
-                        {d1 && !d2 && (
-                          <CompactUpload label="File 3 — drop CSV here"
-                            onFile={(f) => uploadSlot(2, f)}
-                            loading={l2} error={e2} />
-                        )}
-                      </div>
-                      <p className="text-[10px] font-mono text-white/20">
-                        All tabs work independently per file. Side-by-side shows the same tab for all files at once.
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
 
               {/* ── Switch mode: file selector ── */}
               {compareActive && layout === 'switch' && (
                 <div className="flex items-center gap-2 overflow-x-auto pb-1">
                   {loadedSlots.map((slot, i) => (
-                    <button
-                      key={slot.idx}
-                      onClick={() => setActiveSlot(i)}
+                    <button key={slot.idx} onClick={() => setActiveSlot(i)}
                       className={`flex-shrink-0 px-3 py-1.5 text-xs font-mono border transition-colors ${
-                        activeSlot === i
-                          ? 'border-white/40 text-white bg-white/[0.06]'
-                          : 'border-white/[0.08] text-white/40 hover:text-white/60 hover:border-white/20'
-                      }`}
-                    >
+                        activeSlot === i ? 'border-white/40 text-white bg-white/[0.06]' : 'border-white/[0.08] text-white/40 hover:text-white/60 hover:border-white/20'
+                      }`}>
                       {slot.name}
                       {slot.idx !== 0 && (
-                        <span
-                          className="ml-2 text-white/20 hover:text-white/60 transition-colors"
+                        <span className="ml-2 text-white/20 hover:text-white/60 transition-colors"
                           onClick={(e) => { e.stopPropagation(); removeSlot(slot.idx as 1 | 2) }}
-                          role="button"
-                          aria-label={`Remove ${slot.name}`}
-                        >✕</span>
+                          role="button" aria-label={`Remove ${slot.name}`}>✕</span>
                       )}
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* ── Shared tab bar ── */}
+              {/* ── Tab bar ── */}
               <div className="overflow-x-auto -mx-4 px-4 sm:overflow-visible sm:mx-0 sm:px-0">
                 <Tabs tabs={TABS} active={tab} onChange={(t) => setTab(t as Tab)} />
               </div>
@@ -346,11 +321,11 @@ export default function App() {
                   exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
                   transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  {/* Side-by-side */}
+                  {/* Side-by-side: slots + always-visible compare zones */}
                   {(!compareActive || layout === 'sidebyside') && (
                     <div className={`grid gap-6 ${
-                      loadedSlots.length === 1 ? 'grid-cols-1' :
-                      loadedSlots.length === 2 ? 'grid-cols-1 lg:grid-cols-2' :
+                      totalCols === 1 ? 'grid-cols-1' :
+                      totalCols === 2 ? 'grid-cols-1 lg:grid-cols-2' :
                       'grid-cols-1 lg:grid-cols-3'
                     }`}>
                       {loadedSlots.map((slot) => (
@@ -366,15 +341,26 @@ export default function App() {
                         />
                       ))}
 
-                      {/* Add-more placeholder in side-by-side */}
-                      {loadedSlots.length < 3 && !showAddPanel && loadedSlots.length > 1 && (
-                        <button
-                          onClick={() => setShowAddPanel(true)}
-                          className="border border-dashed border-white/[0.08] flex flex-col items-center justify-center gap-2 p-12 text-white/20 hover:text-white/40 hover:border-white/20 transition-colors min-h-[200px]"
-                        >
-                          <span className="text-2xl">+</span>
-                          <span className="text-xs font-mono">Add File {loadedSlots.length + 1}</span>
-                        </button>
+                      {/* Always-visible File 2 upload zone */}
+                      {!d1 && (
+                        <CompareZone
+                          label="File 2 — Compare"
+                          sublabel="Add a second CSV to compare"
+                          onFile={(f) => uploadSlot(1, f)}
+                          loading={l1}
+                          error={e1}
+                        />
+                      )}
+
+                      {/* Always-visible File 3 upload zone */}
+                      {d1 && !d2 && (
+                        <CompareZone
+                          label="File 3 — Compare"
+                          sublabel="Add a third CSV to compare"
+                          onFile={(f) => uploadSlot(2, f)}
+                          loading={l2}
+                          error={e2}
+                        />
                       )}
                     </div>
                   )}
@@ -390,8 +376,7 @@ export default function App() {
                       compact={false}
                       onRemove={loadedSlots[activeSlot]?.idx !== 0
                         ? () => removeSlot(loadedSlots[activeSlot].idx as 1 | 2)
-                        : undefined
-                      }
+                        : undefined}
                     />
                   )}
                 </motion.div>
