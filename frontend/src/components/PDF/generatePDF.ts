@@ -379,9 +379,11 @@ export function generateBusinessPDF(params: {
     if (trainResult.feature_importance) {
       secHeader(doc, 'Feature Importance', 'Top 15 most influential predictors')
       const fi = trainResult.feature_importance
+      const cumScale = fi.cumulative?.[0] != null && fi.cumulative[0] > 1 ? 1 : 100
       tbl(doc, ['Rank', 'Feature', 'Importance Score', 'Cumulative %'],
         fi.features.slice(0, 15).map((f, i) => [
-          String(i + 1), f, fi.scores[i].toFixed(4), `${(fi.cumulative[i] * 100).toFixed(1)}%`,
+          String(i + 1), f, fi.scores[i].toFixed(4),
+          fi.cumulative?.[i] != null ? `${(fi.cumulative[i] * cumScale).toFixed(1)}%` : '\u2014',
         ]),
         { 2: { halign: 'right' }, 3: { halign: 'right' } })
     }
