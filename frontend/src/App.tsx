@@ -6,6 +6,7 @@ import { DropZone }        from './components/Upload/DropZone'
 import { UploadingScreen } from './components/Upload/UploadingScreen'
 import { Tabs }            from './components/UI/Tabs'
 import { SlotContent }     from './components/Dashboard/SlotContent'
+import { PDFButton }       from './components/PDF/PDFButton'
 import { useUpload }       from './hooks/useUpload'
 import { useAnalysis }     from './hooks/useAnalysis'
 import { pingServer }      from './api/client'
@@ -27,14 +28,45 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'story',         label: 'Story'        },
 ]
 
+const ALL_TABS = new Set<Tab>(['overview','trends','kpi','distributions','correlations','forecast','segments','model','story'])
+
 export default function App() {
   const { file, data, loading, error, upload, reset, restoredFilename } = useUpload()
   const analysis = useAnalysis(file)
 
-  const [tab,         setTab]   = useState<Tab>('overview')
-  const [serverReady, setReady] = useState(false)
+  const [tab,         setTab]         = useState<Tab>('overview')
+  const [serverReady, setReady]       = useState(false)
+  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(new Set())
 
   useEffect(() => { pingServer().finally(() => setReady(true)) }, [])
+
+  useEffect(() => {
+    if (!data) setVisitedTabs(new Set())
+  }, [data])
+
+  function handleTabChange(newTab: Tab) {
+    setTab(newTab)
+    setVisitedTabs((prev) => {
+      if (prev.has(newTab)) return prev
+      const next = new Set(prev)
+      next.add(newTab)
+      return next
+    })
+  }
+
+  // PDF unlock logic
+  const missingSteps: string[] = []
+  const unvisitedTabs = [...ALL_TABS].filter((t) => !visitedTabs.has(t))
+  if (unvisitedTabs.length > 0) {
+    const tabLabels = TABS.filter((t) => unvisitedTabs.includes(t.id)).map((t) => t.label)
+    tabLabels.forEach((l) => missingSteps.push(`Visit ${l} tab`))
+  }
+  if (!analysis.kpiResult)      missingSteps.push('Run KPI Analysis')
+  if (!analysis.forecastResult) missingSteps.push('Run Forecast')
+  if (!analysis.segmentResult)  missingSteps.push('Run Segmentation')
+  if (!analysis.trainResult)    missingSteps.push('Train ML Model')
+
+  const pdfUnlocked = missingSteps.length === 0
 
   return (
     <div className="relative min-h-screen bg-black text-white flex flex-col">
@@ -175,15 +207,29 @@ export default function App() {
                     </span>
                   )}
                 </div>
-                <motion.button onClick={reset} aria-label="Close and reset" whileHover={{ color: 'rgba(255,255,255,0.9)' }}
-                  className="text-xs font-mono text-white/50 transition-colors flex-shrink-0 ml-4">
-                  ✕ Close
-                </motion.button>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <PDFButton
+                    unlocked={pdfUnlocked}
+                    missingSteps={missingSteps}
+                    filename={file?.name ?? restoredFilename ?? 'report'}
+                    data={data}
+                    corrResult={analysis.corrResult}
+                    kpiResult={analysis.kpiResult}
+                    forecastResult={analysis.forecastResult}
+                    segmentResult={analysis.segmentResult}
+                    trainResult={analysis.trainResult}
+                    insightsResult={analysis.insightsResult}
+                  />
+                  <motion.button onClick={reset} aria-label="Close and reset" whileHover={{ color: 'rgba(255,255,255,0.9)' }}
+                    className="text-xs font-mono text-white/50 transition-colors">
+                    Close
+                  </motion.button>
+                </div>
               </motion.div>
 
               {/* ── Tab bar ── */}
               <div className="overflow-x-auto -mx-4 px-4 sm:overflow-visible sm:mx-0 sm:px-0">
-                <Tabs tabs={TABS} active={tab} onChange={(t) => setTab(t as Tab)} />
+                <Tabs tabs={TABS} active={tab} onChange={(t) => handleTabChange(t as Tab)} />
               </div>
 
               {/* ── Content ── */}
