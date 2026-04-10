@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { fmt, fmtGrowth } from '../../utils/format'
 import type { UploadResponse, CorrelationResponse } from '../../types'
@@ -107,14 +108,33 @@ function buildStory(data: UploadResponse, corr: CorrelationResponse | null): Sec
 
 export function Story({ data, corrResult }: Props) {
   const sections = buildStory(data, corrResult)
+  const [copied, setCopied] = useState(false)
+
+  function copyStory() {
+    const text = sections
+      .map((s) => `${s.title}\n${s.bullets.map((b) => `• ${b}`).join('\n')}`)
+      .join('\n\n')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <div className="glass p-5">
-        <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-white/30 mb-1">What Your Data Is Telling You</p>
-        <p className="text-xs font-mono text-white/40 leading-relaxed">
-          A synthesized narrative across all tabs — generated automatically from your dataset.
-        </p>
+      <div className="glass p-5 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-white/30 mb-1">What Your Data Is Telling You</p>
+          <p className="text-xs font-mono text-white/40 leading-relaxed">
+            A synthesized narrative across all tabs — generated automatically from your dataset.
+          </p>
+        </div>
+        <button
+          onClick={copyStory}
+          className="flex-shrink-0 text-[10px] font-mono text-white/40 border border-white/[0.08] px-3 py-1.5 hover:text-white/70 hover:border-white/20 transition-colors"
+        >
+          {copied ? '✓ Copied' : 'Copy story'}
+        </button>
       </div>
 
       {sections.map((section, si) => (

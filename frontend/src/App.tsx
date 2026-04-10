@@ -119,10 +119,20 @@ export default function App() {
                     initial={{ opacity: 0, y: 8, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }} className="mb-6 overflow-hidden"
                   >
-                    <div className="flex items-center gap-2.5 text-[11px] font-mono text-white/25 glass px-4 py-2.5" role="status" aria-live="polite">
-                      <motion.div className="w-1 h-1 rounded-full bg-white/40"
-                        animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1.2, repeat: Infinity }} aria-hidden="true" />
-                      Waking up server — first load may take ~30s
+                    <div className="glass px-5 py-3 space-y-2" role="status" aria-live="polite">
+                      <div className="flex items-center gap-2.5">
+                        <motion.div className="w-1.5 h-1.5 rounded-full bg-white/60 flex-shrink-0"
+                          animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }} aria-hidden="true" />
+                        <span className="text-[11px] font-mono text-white/70">Server is starting up — this takes ~30s on first visit</span>
+                      </div>
+                      <div className="h-px w-full bg-white/[0.06] overflow-hidden">
+                        <motion.div className="h-full bg-white/30"
+                          initial={{ width: '0%' }}
+                          animate={{ width: '100%' }}
+                          transition={{ duration: 30, ease: 'linear' }}
+                        />
+                      </div>
+                      <p className="text-[10px] font-mono text-white/35">Upload will work as soon as the bar fills — you can drop your file now</p>
                     </div>
                   </motion.div>
                 )}
