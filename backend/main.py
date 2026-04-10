@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import pandas as pd
@@ -23,10 +23,19 @@ app = FastAPI(title="Business Analyzer API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
 
 
 def sanitize(obj):
@@ -64,7 +73,7 @@ def detect_date_cols(df: pd.DataFrame) -> list[str]:
         # Try parse
         if df[col].dtype == object:
             try:
-                parsed = pd.to_datetime(df[col], infer_datetime_format=True, errors='coerce')
+                parsed = pd.to_datetime(df[col], errors='coerce')
                 if parsed.notna().sum() / max(len(df), 1) > 0.7:
                     found.append(col)
             except Exception:
@@ -196,7 +205,7 @@ def compute_growth_rates(df: pd.DataFrame, numeric_cols: list[str], date_col: Op
                     # MoM: last vs second-to-last
                     last  = temp[col].iloc[-1]
                     prev  = temp[col].iloc[-2]
-                    if prev and prev != 0:
+                    if prev != 0:
                         mom = round(float((last - prev) / abs(prev) * 100), 2)
                 if len(temp) >= 13:
                     yoy_prev = temp[col].iloc[-13]
@@ -386,6 +395,8 @@ def health():
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
     try:
+        if not (file.filename or "").lower().endswith(".csv"):
+            return JSONResponse(status_code=400, content={"detail": "Only CSV files are supported. Please upload a .csv file."})
         raw = await file.read()
         if len(raw) > 20 * 1024 * 1024:
             return JSONResponse(status_code=413, content={
@@ -537,6 +548,11 @@ async def forecast(
     periods:    int        = Form(12),
 ):
     try:
+        if not (file.filename or "").lower().endswith(".csv"):
+            return JSONResponse(status_code=400, content={"detail": "Only CSV files are supported."})
+        # Cap periods to prevent oversized responses and unreliable extrapolation
+        periods = max(1, min(periods, 60))
+
         raw = await file.read()
         df  = read_csv(raw)
 
@@ -554,7 +570,6 @@ async def forecast(
 
         # Fit polynomial degree 2 if enough points, else linear
         if n >= 10:
-            from numpy.polynomial import polynomial as P
             coeffs = np.polyfit(np.arange(n), vals, deg=2)
             poly   = np.poly1d(coeffs)
             hist_pred = poly(np.arange(n))
@@ -569,6 +584,9 @@ async def forecast(
         residuals = vals - hist_pred
         std_res   = float(np.std(residuals))
 
+        # Warn when forecast horizon is large relative to history
+        low_confidence = periods > n // 2
+
         historical = [{"index": int(i), "value": sanitize(float(vals[i])), "fitted": sanitize(float(hist_pred[i]))} for i in range(n)]
         forecasted = [
             {
@@ -581,10 +599,11 @@ async def forecast(
         ]
 
         return sanitize({
-            "target_col":  target_col,
-            "historical":  historical,
-            "forecasted":  forecasted,
-            "std_residual": std_res,
+            "target_col":     target_col,
+            "historical":     historical,
+            "forecasted":     forecasted,
+            "std_residual":   std_res,
+            "low_confidence": low_confidence,
         })
 
     except Exception as e:

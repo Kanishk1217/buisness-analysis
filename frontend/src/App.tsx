@@ -160,13 +160,13 @@ export default function App() {
                     {file?.name ?? restoredFilename ?? ''}
                   </span>
                   {restoredFilename && !file && (
-                    <span className="text-[10px] font-mono text-white/20 border border-white/[0.06] px-2 py-0.5 flex-shrink-0">
+                    <span className="text-[10px] font-mono text-white/40 border border-white/[0.06] px-2 py-0.5 flex-shrink-0">
                       session restored · re-upload to run new analyses
                     </span>
                   )}
                 </div>
-                <motion.button onClick={reset} whileHover={{ color: 'rgba(255,255,255,0.9)' }}
-                  className="text-xs font-mono text-white/25 transition-colors flex-shrink-0 ml-4">
+                <motion.button onClick={reset} aria-label="Close and reset" whileHover={{ color: 'rgba(255,255,255,0.9)' }}
+                  className="text-xs font-mono text-white/50 transition-colors flex-shrink-0 ml-4">
                   ✕ Close
                 </motion.button>
               </motion.div>
