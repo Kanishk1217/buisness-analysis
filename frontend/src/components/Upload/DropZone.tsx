@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Spinner } from '../UI/Spinner'
 
 interface Props {
-  onFile:  (file: File) => void
-  loading: boolean
-  error:   string | null
+  onFile:    (file: File) => void
+  loading:   boolean
+  error:     string | null
+  disabled?: boolean
 }
 
 const SAMPLE_CSV = `Month,Revenue,Cost,Profit,Units_Sold,Customer_Count,Marketing_Spend
@@ -40,16 +41,18 @@ function loadSample(onFile: (f: File) => void) {
   onFile(new File([blob], 'sample-business.csv', { type: 'text/csv' }))
 }
 
-export function DropZone({ onFile, loading, error }: Props) {
+export function DropZone({ onFile, loading, error, disabled }: Props) {
   const onDrop = useCallback((files: File[]) => {
     if (files[0]) onFile(files[0])
   }, [onFile])
+
+  const isDisabled = loading || disabled
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { 'text/csv': ['.csv'] },
     maxFiles: 1,
-    disabled: loading,
+    disabled: isDisabled,
   })
 
   const cornerClasses = [
@@ -82,7 +85,7 @@ export function DropZone({ onFile, loading, error }: Props) {
 
         <div
           {...getRootProps()}
-          className={`p-16 text-center cursor-pointer ${loading ? 'cursor-not-allowed' : ''}`}
+          className={`p-16 text-center cursor-pointer ${isDisabled ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           <input {...getInputProps()} />
 

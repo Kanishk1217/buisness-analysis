@@ -38,7 +38,7 @@ export default function App() {
   const [serverReady, setReady]       = useState(false)
   const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(new Set())
 
-  useEffect(() => { pingServer().finally(() => setReady(true)) }, [])
+  useEffect(() => { pingServer().then(() => setReady(true)).catch(() => setReady(true)) }, [])
 
   useEffect(() => {
     if (!data) setVisitedTabs(new Set())
@@ -155,16 +155,16 @@ export default function App() {
                       <div className="flex items-center gap-2.5">
                         <motion.div className="w-1.5 h-1.5 rounded-full bg-white/60 flex-shrink-0"
                           animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }} aria-hidden="true" />
-                        <span className="text-[11px] font-mono text-white/70">Server is starting up — this takes ~30s on first visit</span>
+                        <span className="text-[11px] font-mono text-white/70">Connecting to server — waking up from sleep, this takes ~30–60s</span>
                       </div>
                       <div className="h-px w-full bg-white/[0.06] overflow-hidden">
                         <motion.div className="h-full bg-white/30"
                           initial={{ width: '0%' }}
-                          animate={{ width: '100%' }}
-                          transition={{ duration: 30, ease: 'linear' }}
+                          animate={{ width: '95%' }}
+                          transition={{ duration: 60, ease: 'linear' }}
                         />
                       </div>
-                      <p className="text-[10px] font-mono text-white/35">Upload will work as soon as the bar fills — you can drop your file now</p>
+                      <p className="text-[10px] font-mono text-white/35">Upload will unlock once connected — you can drop your file now to queue it</p>
                     </div>
                   </motion.div>
                 )}
@@ -175,7 +175,7 @@ export default function App() {
                 transition={{ delay: 0.5, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
                 className="w-full max-w-xl"
               >
-                <DropZone onFile={upload} loading={loading} error={error} />
+                <DropZone onFile={upload} loading={loading} error={error} disabled={!serverReady} />
               </motion.div>
             </motion.div>
 

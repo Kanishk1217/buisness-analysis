@@ -24,7 +24,21 @@ function extractError(e: unknown): string {
 }
 
 export async function pingServer(): Promise<void> {
-  await api.get('/health').catch(() => {})
+  // Poll until the server actually responds (Render free tier cold-starts take 20-60s).
+  // During cold-start, Render's proxy returns a 503 without CORS headers — the browser
+  // shows a CORS error even though our backend has allow_origins=["*"].
+  // We keep retrying so the loading bar stays visible until the server is genuinely ready.
+  for (let attempt = 0; attempt < 30; attempt++) {
+    try {
+      await api.get('/health')
+      return                          // server responded — we're done
+    } catch {
+      if (attempt < 29) {
+        await new Promise((r) => setTimeout(r, 3000))   // wait 3 s then retry
+      }
+    }
+  }
+  // All retries exhausted — let the app proceed anyway (server may be down)
 }
 
 export async function uploadCSV(file: File): Promise<UploadResponse> {
