@@ -24,21 +24,26 @@ function extractError(e: unknown): string {
 }
 
 export async function pingServer(): Promise<void> {
-  // Poll until the server actually responds (Render free tier cold-starts take 20-60s).
-  // During cold-start, Render's proxy returns a 503 without CORS headers — the browser
-  // shows a CORS error even though our backend has allow_origins=["*"].
-  // We keep retrying so the loading bar stays visible until the server is genuinely ready.
-  for (let attempt = 0; attempt < 30; attempt++) {
+  // Send a no-cors wake-up ping first — this bypasses CORS so Render's cold-start proxy
+  // doesn't trigger a browser CORS error. It just wakes the dyno; we don't read the response.
+  try { fetch(`${BASE}/health`, { mode: 'no-cors' }).catch(() => {}) } catch { /* ignore */ }
+
+  // Give Render time to boot before we start polling (cold-start takes 30–60 s)
+  await new Promise((r) => setTimeout(r, 6000))
+
+  // Poll with CORS until the server is genuinely up
+  for (let attempt = 0; attempt < 28; attempt++) {
     try {
       await api.get('/health')
       return                          // server responded — we're done
     } catch {
-      if (attempt < 29) {
+      if (attempt < 27) {
         await new Promise((r) => setTimeout(r, 3000))   // wait 3 s then retry
       }
     }
   }
-  // All retries exhausted — let the app proceed anyway (server may be down)
+  // All retries exhausted (~90 s total) — server is likely suspended or down
+  throw new Error('Server unreachable')
 }
 
 export async function uploadCSV(file: File): Promise<UploadResponse> {

@@ -34,11 +34,20 @@ export default function App() {
   const { file, data, loading, error, upload, reset, restoredFilename } = useUpload()
   const analysis = useAnalysis(file)
 
-  const [tab,         setTab]         = useState<Tab>('overview')
-  const [serverReady, setReady]       = useState(false)
-  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(new Set())
+  const [tab,          setTab]         = useState<Tab>('overview')
+  const [serverReady,  setReady]       = useState(false)
+  const [serverError,  setServerError] = useState(false)
+  const [visitedTabs,  setVisitedTabs] = useState<Set<Tab>>(new Set())
 
-  useEffect(() => { pingServer().then(() => setReady(true)).catch(() => setReady(true)) }, [])
+  function tryPing() {
+    setServerError(false)
+    setReady(false)
+    pingServer()
+      .then(() => setReady(true))
+      .catch(() => { setReady(true); setServerError(true) })
+  }
+
+  useEffect(() => { tryPing() }, [])
 
   useEffect(() => {
     if (!data) setVisitedTabs(new Set())
@@ -146,26 +155,46 @@ export default function App() {
               </motion.div>
 
               <AnimatePresence>
-                {!serverReady && (
+                {(!serverReady || serverError) && (
                   <motion.div
                     initial={{ opacity: 0, y: 8, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }} className="mb-6 overflow-hidden"
                   >
-                    <div className="glass px-5 py-3 space-y-2" role="status" aria-live="polite">
-                      <div className="flex items-center gap-2.5">
-                        <motion.div className="w-1.5 h-1.5 rounded-full bg-white/60 flex-shrink-0"
-                          animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }} aria-hidden="true" />
-                        <span className="text-[11px] font-mono text-white/70">Connecting to server — waking up from sleep, this takes ~30–60s</span>
+                    {serverError ? (
+                      <div className="glass px-5 py-3 space-y-2 border border-red-500/20" role="alert">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-red-400/80 flex-shrink-0" aria-hidden="true" />
+                            <span className="text-[11px] font-mono text-white/70">Server unreachable — it may be suspended on Render's free tier</span>
+                          </div>
+                          <button
+                            onClick={tryPing}
+                            className="text-[10px] font-mono text-white/50 border border-white/[0.12] px-2 py-1 hover:text-white/80 hover:border-white/25 transition-colors flex-shrink-0"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                        <p className="text-[10px] font-mono text-white/35">
+                          Go to <span className="text-white/55">render.com → buisness-analysis</span> and click <span className="text-white/55">Resume</span> if the service is suspended, then retry.
+                        </p>
                       </div>
-                      <div className="h-px w-full bg-white/[0.06] overflow-hidden">
-                        <motion.div className="h-full bg-white/30"
-                          initial={{ width: '0%' }}
-                          animate={{ width: '95%' }}
-                          transition={{ duration: 60, ease: 'linear' }}
-                        />
+                    ) : (
+                      <div className="glass px-5 py-3 space-y-2" role="status" aria-live="polite">
+                        <div className="flex items-center gap-2.5">
+                          <motion.div className="w-1.5 h-1.5 rounded-full bg-white/60 flex-shrink-0"
+                            animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }} aria-hidden="true" />
+                          <span className="text-[11px] font-mono text-white/70">Connecting to server — waking up from sleep, this takes ~30–60s</span>
+                        </div>
+                        <div className="h-px w-full bg-white/[0.06] overflow-hidden">
+                          <motion.div className="h-full bg-white/30"
+                            initial={{ width: '0%' }}
+                            animate={{ width: '95%' }}
+                            transition={{ duration: 90, ease: 'linear' }}
+                          />
+                        </div>
+                        <p className="text-[10px] font-mono text-white/35">Upload will unlock once connected — you can drop your file now to queue it</p>
                       </div>
-                      <p className="text-[10px] font-mono text-white/35">Upload will unlock once connected — you can drop your file now to queue it</p>
-                    </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
