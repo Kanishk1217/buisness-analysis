@@ -9,7 +9,7 @@ import type {
   InsightsResponse,
 } from '../types'
 
-const BASE = 'https://buisness-analysis.onrender.com'
+const BASE = 'https://business-analysis-9mwb.onrender.com'
 
 const api = axios.create({ baseURL: BASE, timeout: 120_000 })
 
